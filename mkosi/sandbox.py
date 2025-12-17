@@ -49,6 +49,7 @@ EBADF = 9
 ENAMETOOLONG = 36
 EPERM = 1
 ENOENT = 2
+ENOMEM = 12
 ENOSYS = 38
 F_DUPFD = 0
 F_GETFD = 1
@@ -353,7 +354,7 @@ def seccomp_suppress(*, chown: bool = False, sync: bool = False) -> None:
                 oserror("seccomp_rule_add_exact", errno=r)
 
         r = libseccomp.seccomp_load(seccomp)
-        if r < 0:
+        if r < 0 and r != -ENOMEM:
             oserror("seccomp_load", errno=r)
     finally:
         libseccomp.seccomp_release(seccomp)
