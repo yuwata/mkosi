@@ -4070,7 +4070,6 @@ def make_rootdir(context: Context) -> None:
 
 
 def build_image(context: Context) -> None:
-    IMAGE.set(context.config.image)
     manifest = Manifest(context) if context.config.manifest_format else None
 
     install_sandbox_trees(context.config, context.sandbox_tree)
@@ -4952,6 +4951,22 @@ def sync_repository_metadata(
     resources: Path,
     stack: contextlib.ExitStack,
 ) -> tuple[Path, Path]:
+    # The sync runs once for all images using the last config, so tag its logs with that image.
+    prev = IMAGE.get()
+    IMAGE.set(images[-1].image)
+    try:
+        return sync_repository_metadata_impl(args, images, resources=resources, stack=stack)
+    finally:
+        IMAGE.set(prev)
+
+
+def sync_repository_metadata_impl(
+    args: Args,
+    images: Sequence[Config],
+    *,
+    resources: Path,
+    stack: contextlib.ExitStack,
+) -> tuple[Path, Path]:
     last = images[-1]
 
     if last.cache_dir:
@@ -5173,6 +5188,8 @@ def run_verb(args: Args, tools: Optional[Config], images: Sequence[Config], *, r
 
     # For the default tools tree have_cache() encompasses the "has the tools tree been built at all" check.
     if tools and not have_cache(tools):
+        IMAGE.set(tools.image)
+
         if (args.rerun_build_scripts or args.verb != Verb.build) and args.force == 0:
             die(
                 "Default tools tree requested but it is out-of-date or has not been built yet",
@@ -5370,6 +5387,7 @@ def run_verb(args: Args, tools: Optional[Config], images: Sequence[Config], *, r
                 ) and not config.build_scripts:
                     continue
 
+                IMAGE.set(config.image)
                 check_tools(config, Verb.build)
                 check_inputs(config)
 
